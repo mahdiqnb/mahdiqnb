@@ -23,7 +23,7 @@ Embedded Systems Developer with strong hands-on experience designing and develop
 
 **Actively seeking remote collaboration opportunities in embedded systems and firmware development.**
 
-📍 Dehaghan, Isfahan, Iran &nbsp;|&nbsp; 🌍 Open to remote work
+🌍 Open to remote work
 
 ---
 
