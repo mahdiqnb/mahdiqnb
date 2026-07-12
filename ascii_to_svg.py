@@ -22,35 +22,42 @@ Notes / design decisions:
 
 import argparse
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps, ImageEnhance
 
-# Character ramp from sparse -> dense. Index scales with brightness.
-RAMP_DARKBG = " .:-=+*#%@"      # for dark background: bright pixel -> dense glyph
-RAMP_LIGHTBG = "@%#*+=-:. "     # for light background: bright pixel -> sparse glyph
+# Single ramp, ordered from empty/sparse -> full/dense ink.
+# Density (ink amount) is driven by SUBJECT darkness, not raw brightness:
+# dark pixels (hair, glasses, shadows, facial contours) -> dense glyph (the
+# part that reads as "ink" on screen, colored/glowing on a dark background).
+# bright pixels (sky, highlights) -> sparse glyph -> fades toward the background.
+RAMP = " .:-=+*#%@"
 
 # Character cell aspect ratio correction (monospace glyphs are ~2x taller than wide)
 CHAR_ASPECT = 0.55
 
 
 def image_to_ascii_grid(path: str, cols: int) -> np.ndarray:
-    """Load an image and reduce it to a 2D array of brightness values (0-1)."""
+    """Load an image and reduce it to a 2D array of brightness values (0-1),
+    with contrast stretched so facial detail survives the downsample."""
     img = Image.open(path).convert("L")  # grayscale
+    img = ImageOps.autocontrast(img, cutoff=1)  # stretch tonal range
+    img = ImageEnhance.Contrast(img).enhance(1.25)
     w, h = img.size
     rows = max(1, int(cols * (h / w) * CHAR_ASPECT))
-    img = img.resize((cols, rows))
+    img = img.resize((cols, rows), Image.LANCZOS)
     arr = np.asarray(img, dtype=np.float32) / 255.0
     return arr
 
 
 def brightness_to_char(value: float, ramp: str) -> str:
-    idx = int(value * (len(ramp) - 1))
+    density = 1.0 - value  # dark subject pixels -> high density -> dense glyph
+    idx = int(density * (len(ramp) - 1))
     idx = max(0, min(len(ramp) - 1, idx))
     return ramp[idx]
 
 
 def build_svg(grid: np.ndarray, theme: str, font_size: int = 9) -> str:
     rows, cols = grid.shape
-    ramp = RAMP_DARKBG if theme == "dark" else RAMP_LIGHTBG
+    ramp = RAMP
 
     # Colors tuned to look like the terminal/cyan aesthetic in the reference clip
     if theme == "dark":
